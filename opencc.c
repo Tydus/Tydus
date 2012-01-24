@@ -30,14 +30,22 @@
   #define _(x) (x)
 #endif
 
-int cri(const char *s){
-    if(strstr(s,"jap"))
-        return 0;
+int cri(const char * s, const char * const * lst)
+{
+    for(;*lst;lst++){
+        if (strstr(s,*lst))
+            return 0;
+    }
 
     return 1;
 }
 
-void convert(const char * input_file, const char * output_file, const char * config_file)
+void convert(
+        const char * input_file,
+        const char * output_file,
+        const char * config_file,
+        const char * const * lst
+        )
 {
 	opencc_t od = opencc_open(config_file);
 	if (od == (opencc_t) -1)
@@ -95,7 +103,8 @@ void convert(const char * input_file, const char * output_file, const char * con
             line_length = strlen(buffer_in_p);
         }
 
-        if(cri(buffer_in)){
+        if (cri (buffer_in, lst))
+        {
             buffer_out = opencc_convert_utf8(od, buffer_in, (size_t) -1);
             if (buffer_out != (char *) -1)
             {
@@ -140,6 +149,7 @@ void show_usage()
 	printf(_(" -i [file], --input=[file]   Read original text from [file].\n"));
 	printf(_(" -o [file], --output=[file]  Write converted text to [file].\n"));
 	printf(_(" -c [file], --config=[file]  Load configuration of conversion from [file].\n"));
+	printf(_(" -p [list], --pass=[list]    pass the lines if contains words in the list, separate with ','.\n"));
 	printf(_(" -v, --version               Print version and build information.\n"));
 	printf(_(" -h, --help                  Print this help.\n"));
 	printf(_("\n"));
@@ -162,13 +172,16 @@ int main(int argc, char ** argv)
 		{ "input", required_argument, NULL, 'i' },
 		{ "output", required_argument, NULL, 'o' },
 		{ "config", required_argument, NULL, 'c' },
+		{ "pass", required_argument, NULL, 'p' },
 		{ 0, 0, 0, 0 },
 	};
 
 	static int oc;
 	static char *input_file, *output_file, *config_file;
+    static char *lst[256];
+    int i=1;
 
-	while((oc = getopt_long(argc, argv, "vh:i:o:c:", longopts, NULL)) != -1)
+	while((oc = getopt_long(argc, argv, "vh:i:o:c:p:", longopts, NULL)) != -1)
 	{
 		switch (oc)
 		{
@@ -190,6 +203,19 @@ int main(int argc, char ** argv)
 		case 'c':
 			config_file = strdup(optarg);
 			break;
+        case 'p':
+            {
+                lst[0]=strdup(strtok(optarg,","));
+                for(;;){
+                    char *s=strtok(NULL,",");
+                    if(!s){
+                        lst[i]=NULL;
+                        break;
+                    }
+                    lst[i++]=strdup(s);
+                }
+            }
+            break;
 		}
 	}
 
@@ -198,7 +224,7 @@ int main(int argc, char ** argv)
 		config_file = strdup(OPENCC_DEFAULT_CONFIG_SIMP_TO_TRAD);
 	}
 
-	convert(input_file, output_file, config_file);
+	convert(input_file, output_file, config_file, lst);
 
 	free(input_file);
 	free(output_file);
