@@ -3,9 +3,18 @@ from optparse import OptionParser
 import subprocess
 import string
 import os
+import os.path
+import sys
+import shutil
 
-def shell(command):
-    return subprocess.Popen(command,shell=True).wait()
+def convert(source_fn,dest_fn,maxres):
+    src=file(source_fn,'rb')
+    dst=file(dest_fn,'wb')
+    ret=subprocess.call('mogrify -format jpg -resize ">^%d" -'%maxres,
+                        stdin=src,stdout=dst,shell=True)
+    src.close()
+    dst.close()
+    return ret
 
 def main():
     parser=OptionParser(usage='usage: %prog [options] file')
@@ -19,7 +28,7 @@ def main():
     if len(arg)==0:
         print "Error: No flac file specified"
         parser.print_help()
-        exit(-1)
+        return -1
 
     opt.filename=arg[0]
 
@@ -28,35 +37,39 @@ def main():
     command="metaflac "
 
     if opt.cover!=None:
-        if shell('convert -resize ">^%d" %s cover-converted.jpg'
-            %(opt.coverres,opt.cover)):
+        if convert(opt.cover,'cover-converted.jpg',opt.coverres):
             print "Error: Cannot convert %s"%opt.cover
-            exit(-1)
+            return -1
         command+='--import-picture-from="3||Front Cover||cover-converted.jpg" '
 
     if opt.dir!=None:
         try:
-            os.rmdir('converted')
-        except OSError:
+            shutil.rmtree('converted')
+        except OSError,e:
             pass
+        count=0
         try:
             os.mkdir('converted')
             for i in os.listdir(opt.dir):
-                basename=string.split(i,'.')[0]
-                if shell('convert -resize ">^%d" %s/%s converted/%s.jpg'
-                    %(opt.maxres,opt.dir,i,basename)):
+                basename=i.rsplit('.',1)[0]
+                if convert("%s/%s"%(opt.dir,i),'converted/%s.jpg'%basename,opt.maxres):
                     print "Warning: cannot convert %s/%s"%(opt.dir,i)
                 else:
-                    command+='--import-picture-from="0||%s||converted/%s.jpg" '%(basename,basename)
+                    command+='--import-picture-from="0||%s||converted/%s.jpg" '%(count,basename)
+            count+=1
 
         except OSError:
             print "Error: Cannot access directory",opt.dir
-            exit(-1)
+            return -1
 
-    command+=opt.filename
-    if shell(command):
+    command+='"'+opt.filename+'"'
+    if subprocess.call(command,shell=True):
         print "Error: failed inserting metadata into flac"
-        exit(-1)
+        return -1
+
+    shutil.rmtree('converted')
+    os.remove('cover-converted.jpg')
+    return 0
 
 if __name__=='__main__':
-    main()
+    exit(main())
