@@ -149,7 +149,8 @@ void show_usage()
 	printf(_(" -i [file], --input=[file]   Read original text from [file].\n"));
 	printf(_(" -o [file], --output=[file]  Write converted text to [file].\n"));
 	printf(_(" -c [file], --config=[file]  Load configuration of conversion from [file].\n"));
-	printf(_(" -p [list], --pass=[list]    pass the lines if contains words in the list, separate with ','.\n"));
+	printf(_(" -p [list], --pass=[list]    pass the lines if contains words in the list,\n"));
+	printf(_("                             using the following syntax like sed: '@op_jap@ed_jap@'\n"));
 	printf(_(" -v, --version               Print version and build information.\n"));
 	printf(_(" -h, --help                  Print this help.\n"));
 	printf(_("\n"));
@@ -205,14 +206,17 @@ int main(int argc, char ** argv)
 			break;
         case 'p':
             {
-                lst[0]=strdup(strtok(optarg,","));
+                char del[]={optarg[0],'\0'};
+                optarg++;
+                lst[0]=strdup(strtok(optarg,del));
                 for(;;){
-                    char *s=strtok(NULL,",");
+                    char *s=strtok(NULL,del);
                     if(!s){
                         lst[i]=NULL;
                         break;
                     }
-                    lst[i++]=strdup(s);
+                    if(s[0])
+                        lst[i++]=strdup(s);
                 }
             }
             break;
@@ -224,7 +228,7 @@ int main(int argc, char ** argv)
 		config_file = strdup(OPENCC_DEFAULT_CONFIG_SIMP_TO_TRAD);
 	}
 
-	convert(input_file, output_file, config_file, lst);
+	convert(input_file, output_file, config_file, (const char *const *)lst);
 
 	free(input_file);
 	free(output_file);
